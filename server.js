@@ -1,33 +1,25 @@
 import express from 'express';
-import bodyParser from 'body-parser';
-import { consultarSunat } from './sunat-consulta.js';
 
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json());
+
+// 🔥 RUTA DE PRUEBA (IMPORTANTE)
+app.get('/', (req, res) => {
+    res.send('API funcionando 🚀');
+});
 
 app.post('/verificar', async (req, res) => {
-    const { ruc, tipo, serie, numero, fecha, total } = req.body;
+    console.log('📩 Petición recibida');
 
-    try {
-        const resultado = await consultarSunat(
-            ruc, tipo, serie, numero, fecha, total
-        );
-
-        res.json({
-            success: true,
-            data: resultado
-        });
-
-    } catch (error) {
-        res.json({
-            success: false,
-            message: error.message
-        });
-    }
+    return res.json({
+        success: true,
+        mensaje: "API funcionando correctamente",
+        data: req.body
+    });
 });
 
 const port = process.env.PORT || 3000;
 
-app.listen(port, () => {
-    console.log(`API SUNAT corriendo en puerto ${port}`);
+app.listen(port, '0.0.0.0', () => {
+    console.log(`🚀 Servidor corriendo en puerto ${port}`);
 });
