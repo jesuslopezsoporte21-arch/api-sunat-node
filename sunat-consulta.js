@@ -1,46 +1,66 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+puppeteer.use(StealthPlugin());
 
 export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
 
-    console.log('🚀 Iniciando Puppeteer...');
+    console.log('🚀 MODO PRO ACTIVADO');
 
     const browser = await puppeteer.launch({
         headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        timeout: 60000
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-dev-shm-usage',
+            '--no-zygote',
+            '--single-process'
+        ]
     });
 
     try {
         const page = await browser.newPage();
 
-        // ⏱️ TIMEOUTS GLOBALES
-        await page.setDefaultNavigationTimeout(60000);
-        await page.setDefaultTimeout(60000);
+        // 🧠 SIMULAR USUARIO REAL
+        await page.setUserAgent(
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+            '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        );
 
-        console.log('🌐 Navegando a SUNAT...');
+        await page.setExtraHTTPHeaders({
+            'Accept-Language': 'es-PE,es;q=0.9'
+        });
+
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => false
+            });
+        });
+
+        // ⏱️ TIMEOUT
+        await page.setDefaultNavigationTimeout(60000);
+
+        console.log('🌐 Entrando a SUNAT...');
         await page.goto(
             'https://e-consulta.sunat.gob.pe/ol-ti-itconsvalicpe/ConsValiCpe.htm',
             { waitUntil: 'domcontentloaded' }
         );
 
-        console.log('📝 Esperando formulario...');
         await page.waitForSelector('input[name="num_ruc"]');
 
         // 🔹 DATOS
-        await page.type('input[name="num_ruc"]', ruc);
+        await page.type('input[name="num_ruc"]', ruc, { delay: 50 });
         await page.select('select[name="tipocomprobante"]', tipo);
         await page.select('select[name="cod_docide"]', '-');
-        await page.type('input[name="num_serie"]', serie.toUpperCase());
-        await page.type('input[name="num_comprob"]', numero);
+        await page.type('input[name="num_serie"]', serie.toUpperCase(), { delay: 50 });
+        await page.type('input[name="num_comprob"]', numero, { delay: 50 });
 
-        // 📅 FECHA (TU LÓGICA MANTENIDA)
+        // 📅 FECHA
         const fechaInput = await page.$('input[name="fec_emision"]');
         await fechaInput.click({ clickCount: 3 });
         await fechaInput.press('Backspace');
-
-        for (const char of fecha) {
-            await fechaInput.type(char, { delay: 30 });
-        }
+        await fechaInput.type(fecha, { delay: 50 });
 
         await page.evaluate((fecha) => {
             const input = document.querySelector('input[name="fec_emision"]');
@@ -50,7 +70,7 @@ export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
         }, fecha);
 
         // 💰 TOTAL
-        await page.type('input[name="cantidad"]', total);
+        await page.type('input[name="cantidad"]', total, { delay: 50 });
 
         console.log('🔍 Buscando...');
         await Promise.all([
@@ -58,7 +78,7 @@ export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
             page.waitForNavigation({ waitUntil: 'domcontentloaded' })
         ]);
 
-        console.log('📊 Analizando resultado...');
+        console.log('📊 Analizando...');
 
         const resultado = await page.evaluate(() => {
             const texto = document.body.innerText;
@@ -68,50 +88,27 @@ export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
             let mensaje = '';
             let estado = '';
 
-            // ✅ BAJA
-            if (texto.includes('comunicada de BAJA')) {
+            if (texto.includes('BAJA')) {
                 valido = true;
                 estado = 'BAJA';
-
-                const lineas = texto.split('\n');
-                mensaje = lineas.find(l => l.includes('BAJA')) || 'Comprobante dado de baja';
+                mensaje = 'Comprobante en BAJA';
             }
-
-            // ✅ ACTIVO
-            else if (texto.includes('ha sido informada a SUNAT') ||
-                     texto.includes('COMPROBANTE VÁLIDO') ||
-                     texto.includes('El comprobante es válido')) {
-
+            else if (texto.includes('informada a SUNAT') || texto.includes('VÁLIDO')) {
                 valido = true;
                 estado = 'ACTIVO';
-
-                const lineas = texto.split('\n');
-                mensaje = lineas.find(l => l.includes('informada')) || 'Comprobante válido';
+                mensaje = 'Comprobante válido';
             }
-
-            // ❌ NO EXISTE
-            else if (texto.includes('No existe') ||
-                     texto.includes('no válido') ||
-                     texto.includes('NO EXISTE')) {
-
+            else if (texto.includes('No existe') || texto.includes('NO EXISTE')) {
                 valido = false;
                 estado = 'NO_EXISTE';
-                mensaje = 'El comprobante NO existe';
+                mensaje = 'Comprobante no existe';
             }
-
-            // ⚠️ OTROS
             else {
-                if (html.includes('BAJA')) {
-                    valido = true;
-                    estado = 'BAJA';
-                    mensaje = 'Comprobante en BAJA';
-                } else {
-                    estado = 'DESCONOCIDO';
-                    mensaje = 'No se pudo determinar';
-                }
+                estado = 'DESCONOCIDO';
+                mensaje = 'No se pudo determinar';
             }
 
-            return { valido, mensaje, estado };
+            return { valido, estado, mensaje };
         });
 
         console.log('✅ RESULTADO:', resultado);
@@ -129,6 +126,5 @@ export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
 
     } finally {
         await browser.close();
-        console.log('🧹 Navegador cerrado');
     }
 }
