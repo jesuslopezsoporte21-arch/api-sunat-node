@@ -2,10 +2,9 @@ import puppeteer from 'puppeteer';
 
 async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
     const browser = await puppeteer.launch({
-        headless: false,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--start-maximized'],
-        defaultViewport: null
-    });
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    headless: 'new'
+     });
     
     try {
         const page = await browser.newPage();
