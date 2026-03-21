@@ -1,14 +1,13 @@
 import puppeteer from 'puppeteer';
 
 export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
+    console.log('✅ Prueba sin Puppeteer');
 
-    console.log('🚀 Iniciando Puppeteer...');
-
-    const browser = await puppeteer.launch({
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        headless: 'new',
-        timeout: 60000
-    });
+    return {
+        mensaje: "API funcionando correctamente",
+        datos: { ruc, tipo, serie, numero, fecha, total }
+    };
+}
 
     try {
         const page = await browser.newPage();
