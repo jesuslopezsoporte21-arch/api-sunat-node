@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer';
 
-async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
+export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
     const browser = await puppeteer.launch({
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
     headless: 'new'
