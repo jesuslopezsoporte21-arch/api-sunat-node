@@ -4,14 +4,16 @@ import { consultarSunat } from './sunat-consulta.js';
 const app = express();
 app.use(express.json());
 
+// 🔹 RUTA BASE
 app.get('/', (req, res) => {
-    res.send('API funcionando 🚀');
+    res.send('API SUNAT funcionando 🚀');
 });
 
+// 🔹 ENDPOINT PRINCIPAL
 app.post('/verificar', async (req, res) => {
     const { ruc, tipo, serie, numero, fecha, total } = req.body;
 
-    console.log('📩 Petición recibida');
+    console.log('📩 Petición recibida:', req.body);
 
     try {
         const resultado = await Promise.race([
@@ -36,6 +38,7 @@ app.post('/verificar', async (req, res) => {
     }
 });
 
+// 🔹 PUERTO
 const port = process.env.PORT || 3000;
 
 app.listen(port, '0.0.0.0', () => {
