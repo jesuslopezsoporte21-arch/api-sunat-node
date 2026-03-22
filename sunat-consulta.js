@@ -5,7 +5,6 @@ puppeteer.use(StealthPlugin());
 
 export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
 
-    // 🔒 VALIDACIÓN (IMPORTANTE)
     if (!ruc || !tipo || !serie || !numero || !fecha || !total) {
         return {
             valido: false,
@@ -14,28 +13,39 @@ export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
         };
     }
 
-    // 🔧 ASEGURAR STRING (FIX ERROR)
     const fechaStr = String(fecha);
     const totalStr = String(total);
 
-    console.log('🚀 MODO PRO ACTIVADO');
+    console.log('🚀 SUNAT FAST MODE');
 
     const browser = await puppeteer.launch({
-        headless: 'new',
+        headless: true,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-blink-features=AutomationControlled',
             '--disable-dev-shm-usage',
+            '--disable-gpu',
             '--no-zygote',
-            '--single-process'
+            '--single-process',
+            '--no-first-run',
+            '--disable-extensions'
         ]
     });
 
     try {
         const page = await browser.newPage();
 
-        // 🧠 SIMULAR NAVEGADOR REAL
+        // ⚡ BLOQUEAR RECURSOS PESADOS (CLAVE)
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            const tipo = req.resourceType();
+            if (['image', 'stylesheet', 'font', 'media'].includes(tipo)) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+
         await page.setUserAgent(
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
             '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -45,17 +55,10 @@ export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
             'Accept-Language': 'es-PE,es;q=0.9'
         });
 
-        await page.evaluateOnNewDocument(() => {
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => false
-            });
-        });
+        await page.setDefaultNavigationTimeout(30000);
+        await page.setDefaultTimeout(30000);
 
-        // ⏱️ TIMEOUT
-        await page.setDefaultNavigationTimeout(60000);
-        await page.setDefaultTimeout(60000);
-
-        console.log('🌐 Entrando a SUNAT...');
+        console.log('🌐 SUNAT...');
         await page.goto(
             'https://e-consulta.sunat.gob.pe/ol-ti-itconsvalicpe/ConsValiCpe.htm',
             { waitUntil: 'domcontentloaded' }
@@ -63,19 +66,14 @@ export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
 
         await page.waitForSelector('input[name="num_ruc"]');
 
-        // 🔹 DATOS
-        await page.type('input[name="num_ruc"]', ruc, { delay: 40 });
+        // ⚡ SIN DELAYS (MUY IMPORTANTE)
+        await page.type('input[name="num_ruc"]', ruc);
         await page.select('select[name="tipocomprobante"]', tipo);
         await page.select('select[name="cod_docide"]', '-');
-        await page.type('input[name="num_serie"]', serie.toUpperCase(), { delay: 40 });
-        await page.type('input[name="num_comprob"]', numero, { delay: 40 });
+        await page.type('input[name="num_serie"]', serie.toUpperCase());
+        await page.type('input[name="num_comprob"]', numero);
 
-        // 📅 FECHA (FIX)
-        const fechaInput = await page.$('input[name="fec_emision"]');
-        await fechaInput.click({ clickCount: 3 });
-        await fechaInput.press('Backspace');
-        await fechaInput.type(fechaStr, { delay: 40 });
-
+        // 📅 FECHA RÁPIDA
         await page.evaluate((fecha) => {
             const input = document.querySelector('input[name="fec_emision"]');
             input.value = fecha;
@@ -84,9 +82,10 @@ export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
         }, fechaStr);
 
         // 💰 TOTAL
-        await page.type('input[name="cantidad"]', totalStr, { delay: 40 });
+        await page.type('input[name="cantidad"]', totalStr);
 
-        console.log('🔍 Buscando...');
+        console.log('🔍 Consultando...');
+
         await Promise.all([
             page.click('input[value="Buscar"]'),
             page.waitForNavigation({ waitUntil: 'domcontentloaded' })
@@ -154,6 +153,5 @@ export async function consultarSunat(ruc, tipo, serie, numero, fecha, total) {
 
     } finally {
         await browser.close();
-        console.log('🧹 Navegador cerrado');
     }
 }
